@@ -59,6 +59,7 @@ class ValueComparison:
     market_type: str
     kalshi_ticker: str
     game_id: str
+    commence_time: str
     matchup: str
     selection: str
     line: float | None
