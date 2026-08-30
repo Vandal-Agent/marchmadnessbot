@@ -13,7 +13,7 @@ if "dotenv" not in sys.modules:
     sys.modules["dotenv"] = dotenv_stub
 
 from football_v2.kalshi import parse_contract
-from football_v2.matching import event_date_from_ticker, match_game, team_similarity
+from football_v2.matching import event_date_from_ticker, match_game, normalize_team, team_similarity
 from football_v2.models import KalshiContract,SportsbookGame,SportsbookMarket,SportsbookOutcome
 from football_v2.value import american_implied_probability,consensus_probability
 
@@ -25,6 +25,13 @@ class FootballV2Tests(unittest.TestCase):
 
     def test_nfl_abbreviation_matching(self):
         self.assertEqual(team_similarity("SEA","Seattle Seahawks"),1.0)
+
+    def test_college_state_abbreviation_selects_correct_team(self):
+        self.assertEqual(normalize_team("Washington St."), "washington state")
+        self.assertGreater(
+            team_similarity("Washington St.", "Washington State Cougars"),
+            team_similarity("Washington St.", "Washington Huskies"),
+        )
 
     def test_parse_prices(self):
         c=parse_contract({"ticker":"T","event_ticker":"E","title":"NE Patriots vs SEA Seahawks",
@@ -61,6 +68,24 @@ class FootballV2Tests(unittest.TestCase):
         self.assertEqual(samples,2)
         self.assertIsNotNone(probability)
         self.assertTrue(0.50<probability<0.53)
+
+    def test_washington_state_uses_underdog_probability(self):
+        c=KalshiContract("T","E","KXNCAAFGAME","ncaaf","moneyline","Washington St. vs Washington",
+          "Washington St.","Washington","",.05,.08,.92,.95,None,100,100,"",{})
+        g=SportsbookGame("G","ncaaf","2026-09-06T00:00:00Z","Washington Huskies","Washington State Cougars",(
+          SportsbookMarket("b1","Book 1","moneyline",(
+            SportsbookOutcome("Washington State Cougars",900),
+            SportsbookOutcome("Washington Huskies",-1400),
+          )),
+          SportsbookMarket("b2","Book 2","moneyline",(
+            SportsbookOutcome("Washington State Cougars",850),
+            SportsbookOutcome("Washington Huskies",-1300),
+          )),
+        ),{})
+        probability,samples=consensus_probability(c,g)
+        self.assertEqual(samples,2)
+        self.assertIsNotNone(probability)
+        self.assertLess(probability,0.15)
 
 
 if __name__ == "__main__":
