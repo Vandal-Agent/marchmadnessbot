@@ -17,19 +17,43 @@ NFL_ALIASES = {
     "sf":"san francisco 49ers","tb":"tampa bay buccaneers","ten":"tennessee titans","was":"washington commanders",
 }
 
+TOKEN_ALIASES = {
+    "st": "state",
+}
+
+IGNORED_TOKENS = {"university", "college", "football", "the"}
+MINIMUM_TEAM_SCORE = 0.76
+MINIMUM_SIDE_MARGIN = 0.05
+
 
 def normalize_team(value: str) -> str:
     text = re.sub(r"[^a-z0-9]+", " ", value.lower().replace("&", " and ")).strip()
-    return NFL_ALIASES.get(text, " ".join(t for t in text.split() if t not in {"university","college","football","the"}))
+    if text in NFL_ALIASES:
+        return NFL_ALIASES[text]
+    tokens = (TOKEN_ALIASES.get(token, token) for token in text.split())
+    return " ".join(token for token in tokens if token not in IGNORED_TOKENS)
 
 
 def team_similarity(left: str, right: str) -> float:
     a, b = normalize_team(left), normalize_team(right)
-    if not a or not b: return 0.0
-    if a == b: return 1.0
+    if not a or not b:
+        return 0.0
+    if a == b:
+        return 1.0
     aa, bb = set(a.split()), set(b.split())
-    if aa <= bb or bb <= aa: return 0.78 if min(len(aa), len(bb)) == 1 else 0.92
+    if aa <= bb or bb <= aa:
+        return 0.78 if min(len(aa), len(bb)) == 1 else 0.92
     return max(2 * len(aa & bb) / (len(aa) + len(bb)), SequenceMatcher(None, a, b).ratio())
+
+
+def target_side_index(target_team: str, left_team: str, right_team: str) -> int | None:
+    scores = (team_similarity(target_team, left_team), team_similarity(target_team, right_team))
+    best_index = 0 if scores[0] >= scores[1] else 1
+    if scores[best_index] < MINIMUM_TEAM_SCORE:
+        return None
+    if scores[best_index] - scores[1 - best_index] < MINIMUM_SIDE_MARGIN:
+        return None
+    return best_index
 
 
 def game_match_score(contract: KalshiContract, game: SportsbookGame) -> float:
@@ -42,12 +66,20 @@ def game_match_score(contract: KalshiContract, game: SportsbookGame) -> float:
             return 0.0
         if day_gap > 1:
             return 0.0
-    home = team_similarity(contract.target_team, game.home_team)
-    away = team_similarity(contract.target_team, game.away_team)
-    target = max(home, away)
-    if not contract.opponent_team: return target
-    opponent = team_similarity(contract.opponent_team, game.away_team if home >= away else game.home_team)
-    return 0.65 * target + 0.35 * opponent
+
+    if not contract.opponent_team:
+        return 0.0
+
+    side_index = target_side_index(contract.target_team, game.home_team, game.away_team)
+    if side_index is None:
+        return 0.0
+
+    game_teams = (game.home_team, game.away_team)
+    target_score = team_similarity(contract.target_team, game_teams[side_index])
+    opponent_score = team_similarity(contract.opponent_team, game_teams[1 - side_index])
+    if opponent_score < MINIMUM_TEAM_SCORE:
+        return 0.0
+    return 0.55 * target_score + 0.45 * opponent_score
 
 
 def event_date_from_ticker(event_ticker: str) -> str:
@@ -66,6 +98,8 @@ def match_game(contract: KalshiContract, games: list[SportsbookGame], minimum_sc
                ambiguity_margin: float = 0.05) -> tuple[SportsbookGame | None, float]:
     candidates = sorted(((game_match_score(contract, g), g) for g in games if g.sport == contract.sport),
                         key=lambda x: x[0], reverse=True)
-    if not candidates or candidates[0][0] < minimum_score: return None, candidates[0][0] if candidates else 0.0
-    if len(candidates) > 1 and candidates[0][0] - candidates[1][0] < ambiguity_margin: return None, candidates[0][0]
+    if not candidates or candidates[0][0] < minimum_score:
+        return None, candidates[0][0] if candidates else 0.0
+    if len(candidates) > 1 and candidates[0][0] - candidates[1][0] < ambiguity_margin:
+        return None, candidates[0][0]
     return candidates[0][1], candidates[0][0]
