@@ -5,7 +5,7 @@ from pathlib import Path
 
 from football_v2.models import KalshiContract, SportsbookGame, ValueComparison
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def connect(path: Path) -> sqlite3.Connection:
@@ -20,7 +20,8 @@ def connect(path: Path) -> sqlite3.Connection:
     CREATE TABLE IF NOT EXISTS sportsbook_snapshots(id INTEGER PRIMARY KEY,observed_at TEXT NOT NULL,
       event_id TEXT NOT NULL,sport TEXT NOT NULL,raw_json TEXT NOT NULL,UNIQUE(observed_at,event_id));
     CREATE TABLE IF NOT EXISTS value_comparisons(id INTEGER PRIMARY KEY,observed_at TEXT NOT NULL,sport TEXT NOT NULL,
-      market_type TEXT NOT NULL,kalshi_ticker TEXT NOT NULL,game_id TEXT NOT NULL,matchup TEXT NOT NULL,
+      market_type TEXT NOT NULL,kalshi_ticker TEXT NOT NULL,game_id TEXT NOT NULL,commence_time TEXT NOT NULL,
+      matchup TEXT NOT NULL,
       selection TEXT NOT NULL,line REAL,kalshi_yes_ask REAL NOT NULL,fair_probability REAL NOT NULL,
       sportsbook_samples INTEGER NOT NULL,edge_before_costs REAL NOT NULL,cost_buffer REAL NOT NULL,
       net_edge REAL NOT NULL,qualifies INTEGER NOT NULL,match_score REAL NOT NULL,UNIQUE(observed_at,kalshi_ticker));
@@ -29,15 +30,20 @@ def connect(path: Path) -> sqlite3.Connection:
       qualifying_recommendations INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS paper_recommendations(id INTEGER PRIMARY KEY,first_seen_at TEXT NOT NULL,
       sport TEXT NOT NULL,market_type TEXT NOT NULL,kalshi_ticker TEXT NOT NULL UNIQUE,game_id TEXT NOT NULL,
+      commence_time TEXT NOT NULL,
       matchup TEXT NOT NULL,selection TEXT NOT NULL,line REAL,entry_price REAL NOT NULL,
       fair_probability REAL NOT NULL,sportsbook_samples INTEGER NOT NULL,edge_before_costs REAL NOT NULL,
       cost_buffer REAL NOT NULL,net_edge REAL NOT NULL,match_score REAL NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',result TEXT,profit_loss REAL,graded_at TEXT);
     """)
+    for table in ("value_comparisons", "paper_recommendations"):
+        columns = {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
+        if "commence_time" not in columns:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN commence_time TEXT NOT NULL DEFAULT ''")
     row = db.execute("SELECT version FROM schema_meta LIMIT 1").fetchone()
     if row is None:
         db.execute("INSERT INTO schema_meta VALUES (?)", (SCHEMA_VERSION,))
-    elif row[0] == 1:
+    elif row[0] in (1, 2):
         db.execute("UPDATE schema_meta SET version = ?", (SCHEMA_VERSION,))
     elif row[0] != SCHEMA_VERSION:
         raise RuntimeError(f"Unsupported schema {row[0]}")
@@ -53,16 +59,22 @@ def save_run(db: sqlite3.Connection, observed_at: str, contracts: list[KalshiCon
             "INSERT OR IGNORE INTO scan_runs VALUES(?,?,?,?,?)",
             (observed_at, len(contracts), len(games), len(values), len(qualifying)),
         )
-        db.executemany("INSERT OR IGNORE INTO value_comparisons VALUES(NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-          [(v.observed_at,v.sport,v.market_type,v.kalshi_ticker,v.game_id,v.matchup,v.selection,v.line,
+        db.executemany("""
+          INSERT OR IGNORE INTO value_comparisons(
+            observed_at,sport,market_type,kalshi_ticker,game_id,commence_time,matchup,selection,line,
+            kalshi_yes_ask,fair_probability,sportsbook_samples,edge_before_costs,cost_buffer,net_edge,
+            qualifies,match_score
+          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          """,
+          [(v.observed_at,v.sport,v.market_type,v.kalshi_ticker,v.game_id,v.commence_time,v.matchup,v.selection,v.line,
             v.kalshi_yes_ask,v.fair_probability,v.sportsbook_samples,v.edge_before_costs,v.cost_buffer,
             v.net_edge,int(v.qualifies),v.match_score) for v in values])
         db.executemany("""
           INSERT OR IGNORE INTO paper_recommendations(
-            first_seen_at,sport,market_type,kalshi_ticker,game_id,matchup,selection,line,entry_price,
+            first_seen_at,sport,market_type,kalshi_ticker,game_id,commence_time,matchup,selection,line,entry_price,
             fair_probability,sportsbook_samples,edge_before_costs,cost_buffer,net_edge,match_score
-          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
           """,
-          [(v.observed_at,v.sport,v.market_type,v.kalshi_ticker,v.game_id,v.matchup,v.selection,v.line,
+          [(v.observed_at,v.sport,v.market_type,v.kalshi_ticker,v.game_id,v.commence_time,v.matchup,v.selection,v.line,
             v.kalshi_yes_ask,v.fair_probability,v.sportsbook_samples,v.edge_before_costs,v.cost_buffer,
             v.net_edge,v.match_score) for v in qualifying])
