@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from statistics import median
 
 from football_v2.matching import target_side_index
@@ -35,14 +35,25 @@ def consensus_probability(contract: KalshiContract, game: SportsbookGame) -> tup
 
 
 def compare_contract(contract: KalshiContract, game: SportsbookGame, match_score: float,
-                     minimum_net_edge: float, cost_buffer: float) -> ValueComparison | None:
+                     minimum_net_edge: float, cost_buffer: float,
+                     minimum_lead_minutes: int = 30) -> ValueComparison | None:
     if contract.yes_ask is None or not 0 < contract.yes_ask < 1:
+        return None
+    now = datetime.now(timezone.utc)
+    try:
+        commence_time = datetime.fromisoformat(game.commence_time.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+    if commence_time.tzinfo is None:
+        commence_time = commence_time.replace(tzinfo=timezone.utc)
+    if commence_time <= now + timedelta(minutes=minimum_lead_minutes):
         return None
     fair, samples = consensus_probability(contract, game)
     if fair is None:
         return None
-    edge, observed = fair - contract.yes_ask, datetime.now(timezone.utc).isoformat()
+    edge, observed = fair - contract.yes_ask, now.isoformat()
     return ValueComparison(observed, contract.sport, contract.market_type, contract.ticker, game.event_id,
+        game.commence_time,
         f"{game.away_team} at {game.home_team}", contract.target_team, contract.line, contract.yes_ask,
         fair, samples, edge, cost_buffer, edge-cost_buffer,
         samples >= 2 and edge-cost_buffer >= minimum_net_edge, match_score)
