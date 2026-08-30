@@ -17,6 +17,7 @@ class FootballSettings:
     database_path: Path = BASE_DIR / "data" / "football_v2.sqlite"
     minimum_net_edge: float = float(os.getenv("FOOTBALL_MIN_NET_EDGE", "0.05"))
     cost_buffer: float = float(os.getenv("KALSHI_COST_BUFFER", "0.02"))
+    minimum_lead_minutes: int = int(os.getenv("FOOTBALL_MIN_LEAD_MINUTES", "30"))
     request_timeout: int = 30
 
 
