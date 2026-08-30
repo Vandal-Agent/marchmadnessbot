@@ -15,7 +15,7 @@ if "dotenv" not in sys.modules:
 from football_v2.kalshi import parse_contract
 from football_v2.matching import event_date_from_ticker, match_game, normalize_team, team_similarity
 from football_v2.models import KalshiContract,SportsbookGame,SportsbookMarket,SportsbookOutcome
-from football_v2.value import american_implied_probability,consensus_probability
+from football_v2.value import american_implied_probability,compare_contract,consensus_probability
 
 
 class FootballV2Tests(unittest.TestCase):
@@ -86,6 +86,20 @@ class FootballV2Tests(unittest.TestCase):
         self.assertEqual(samples,2)
         self.assertIsNotNone(probability)
         self.assertLess(probability,0.15)
+
+    def test_started_game_cannot_be_recommended(self):
+        c=KalshiContract("T","E","KXNFLGAME","nfl","moneyline","SEA vs NE","SEA","NE","",.40,.42,.58,.60,None,100,100,"",{})
+        g=SportsbookGame("G","nfl","2000-01-01T00:00:00Z","New England Patriots","Seattle Seahawks",(
+          SportsbookMarket("b1","Book 1","moneyline",(
+            SportsbookOutcome("Seattle Seahawks",100),
+            SportsbookOutcome("New England Patriots",-120),
+          )),
+          SportsbookMarket("b2","Book 2","moneyline",(
+            SportsbookOutcome("Seattle Seahawks",100),
+            SportsbookOutcome("New England Patriots",-120),
+          )),
+        ),{})
+        self.assertIsNone(compare_contract(c,g,1.0,0.05,0.02,30))
 
 
 if __name__ == "__main__":
