@@ -16,6 +16,7 @@ def main() -> None:
     parser.add_argument("--sport", choices=("all","nfl","ncaaf"), default="all")
     parser.add_argument("--minimum-edge", type=float, default=settings.minimum_net_edge)
     parser.add_argument("--cost-buffer", type=float, default=settings.cost_buffer)
+    parser.add_argument("--minimum-lead-minutes", type=int, default=settings.minimum_lead_minutes)
     parser.add_argument("--no-save", action="store_true")
     args = parser.parse_args(); sports = ("nfl","ncaaf") if args.sport == "all" else (args.sport,)
     observed = datetime.now(timezone.utc).isoformat()
@@ -24,7 +25,9 @@ def main() -> None:
     for contract in contracts:
         game, score = match_game(contract, games)
         if game is None: unmatched += 1; continue
-        value = compare_contract(contract,game,score,args.minimum_edge,args.cost_buffer)
+        value = compare_contract(
+            contract,game,score,args.minimum_edge,args.cost_buffer,args.minimum_lead_minutes
+        )
         if value is None: unusable += 1; continue
         values.append(value)
     if not args.no_save: save_run(connect(settings.database_path),observed,contracts,games,values)
