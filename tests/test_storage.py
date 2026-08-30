@@ -17,17 +17,17 @@ class StorageTests(unittest.TestCase):
             )
             game = SportsbookGame("G", "ncaaf", "", "Team", "Opponent", (), {"large": "raw payload"})
             qualifying = ValueComparison(
-                "2026-08-30T16:00:01Z", "ncaaf", "moneyline", "T", "G", "Opponent at Team",
+                "2026-08-30T16:00:01Z", "ncaaf", "moneyline", "T", "G", "2026-09-01T16:00:00Z", "Opponent at Team",
                 "Team", None, 0.40, 0.48, 5, 0.08, 0.02, 0.06, True, 0.95,
             )
             rejected = ValueComparison(
-                "2026-08-30T16:00:01Z", "ncaaf", "moneyline", "T2", "G", "Opponent at Team",
+                "2026-08-30T16:00:01Z", "ncaaf", "moneyline", "T2", "G", "2026-09-01T16:00:00Z", "Opponent at Team",
                 "Opponent", None, 0.60, 0.55, 5, -0.05, 0.02, -0.07, False, 0.95,
             )
 
             save_run(db, "2026-08-30T16:00:00Z", [contract], [game], [qualifying, rejected])
             later_signal = ValueComparison(
-                "2026-08-30T17:00:01Z", "ncaaf", "moneyline", "T", "G", "Opponent at Team",
+                "2026-08-30T17:00:01Z", "ncaaf", "moneyline", "T", "G", "2026-09-01T16:00:00Z", "Opponent at Team",
                 "Team", None, 0.44, 0.51, 6, 0.07, 0.02, 0.05, True, 0.96,
             )
             save_run(db, "2026-08-30T17:00:00Z", [contract], [game], [later_signal])
@@ -40,21 +40,21 @@ class StorageTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT COUNT(*) FROM sportsbook_snapshots").fetchone()[0], 0)
             db.close()
 
-    def test_version_one_database_migrates_to_version_two(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "football.sqlite"
-            old = sqlite3.connect(path)
-            old.execute("CREATE TABLE schema_meta(version INTEGER NOT NULL)")
-            old.execute("INSERT INTO schema_meta VALUES(1)")
-            old.commit()
-            old.close()
+    def test_old_databases_migrate_to_version_three(self):
+        for old_version in (1, 2):
+            with self.subTest(old_version=old_version), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "football.sqlite"
+                old = sqlite3.connect(path)
+                old.execute("CREATE TABLE schema_meta(version INTEGER NOT NULL)")
+                old.execute("INSERT INTO schema_meta VALUES(?)", (old_version,))
+                old.commit()
+                old.close()
 
-            db = connect(path)
-            self.assertEqual(db.execute("SELECT version FROM schema_meta").fetchone()[0], 2)
-            self.assertIsNotNone(db.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='paper_recommendations'"
-            ).fetchone())
-            db.close()
+                db = connect(path)
+                self.assertEqual(db.execute("SELECT version FROM schema_meta").fetchone()[0], 3)
+                columns = {row[1] for row in db.execute("PRAGMA table_info(paper_recommendations)")}
+                self.assertIn("commence_time", columns)
+                db.close()
 
 
 if __name__ == "__main__":
