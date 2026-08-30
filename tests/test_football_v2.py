@@ -13,7 +13,7 @@ if "dotenv" not in sys.modules:
     sys.modules["dotenv"] = dotenv_stub
 
 from football_v2.kalshi import parse_contract
-from football_v2.matching import team_similarity
+from football_v2.matching import event_date_from_ticker, match_game, team_similarity
 from football_v2.models import KalshiContract,SportsbookGame,SportsbookMarket,SportsbookOutcome
 from football_v2.value import american_implied_probability,consensus_probability
 
@@ -32,6 +32,25 @@ class FootballV2Tests(unittest.TestCase):
         self.assertIsNotNone(c)
         self.assertEqual(c.yes_bid,0.51)
         self.assertEqual(c.yes_ask,0.54)
+
+    def test_parent_event_supplies_opponent(self):
+        market={"ticker":"T","event_ticker":"KXNCAAFGAME-26SEP12CHARMISS",
+          "title":"Charlotte wins","yes_sub_title":"Charlotte","_event_title":"Charlotte vs Ole Miss"}
+        c=parse_contract(market,"ncaaf","moneyline","KXNCAAFGAME")
+        self.assertEqual(c.target_team,"Charlotte")
+        self.assertEqual(c.opponent_team,"Ole Miss")
+
+    def test_event_date_and_opponent_prevent_wrong_game(self):
+        market={"ticker":"T","event_ticker":"KXNCAAFGAME-26SEP12CHARMISS",
+          "title":"Charlotte wins","yes_sub_title":"Charlotte","_event_title":"Charlotte vs Ole Miss"}
+        c=parse_contract(market,"ncaaf","moneyline","KXNCAAFGAME")
+        wrong=SportsbookGame("W","ncaaf","2026-09-05T19:30:00Z","Charlotte 49ers","Citadel Bulldogs",(),{})
+        right=SportsbookGame("R","ncaaf","2026-09-12T19:30:00Z","Ole Miss Rebels","Charlotte 49ers",(),{})
+        game,score=match_game(c,[wrong,right])
+        self.assertEqual(event_date_from_ticker(c.event_ticker),"2026-09-12")
+        self.assertIsNotNone(game)
+        self.assertEqual(game.event_id,"R")
+        self.assertGreater(score,0.76)
 
     def test_consensus_removes_vig(self):
         c=KalshiContract("T","E","KXNFLGAME","nfl","moneyline","SEA vs NE","SEA","NE","",.49,.51,.48,.50,None,100,100,"",{})

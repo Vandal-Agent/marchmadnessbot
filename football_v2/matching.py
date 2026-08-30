@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from difflib import SequenceMatcher
 
 from football_v2.models import KalshiContract, SportsbookGame
@@ -32,12 +33,33 @@ def team_similarity(left: str, right: str) -> float:
 
 
 def game_match_score(contract: KalshiContract, game: SportsbookGame) -> float:
+    event_date = event_date_from_ticker(contract.event_ticker)
+    game_date = game.commence_time[:10]
+    if event_date and game_date:
+        try:
+            day_gap = abs((datetime.fromisoformat(game_date) - datetime.fromisoformat(event_date)).days)
+        except ValueError:
+            return 0.0
+        if day_gap > 1:
+            return 0.0
     home = team_similarity(contract.target_team, game.home_team)
     away = team_similarity(contract.target_team, game.away_team)
     target = max(home, away)
     if not contract.opponent_team: return target
     opponent = team_similarity(contract.opponent_team, game.away_team if home >= away else game.home_team)
     return 0.65 * target + 0.35 * opponent
+
+
+def event_date_from_ticker(event_ticker: str) -> str:
+    match = re.search(r"-(\d{2})([A-Z]{3})(\d{2})", event_ticker.upper())
+    if not match:
+        return ""
+    year, month_text, day = match.groups()
+    try:
+        month = datetime.strptime(month_text, "%b").month
+    except ValueError:
+        return ""
+    return f"20{year}-{month:02d}-{int(day):02d}"
 
 
 def match_game(contract: KalshiContract, games: list[SportsbookGame], minimum_score: float = 0.76,

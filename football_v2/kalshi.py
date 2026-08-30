@@ -70,11 +70,35 @@ class KalshiClient:
                 break
         return rows
 
+    def fetch_open_events(self, series_ticker: str, max_pages: int = 10) -> dict[str, dict[str, Any]]:
+        cursor = ""
+        events: dict[str, dict[str, Any]] = {}
+        for _ in range(max_pages):
+            params = {"series_ticker": series_ticker, "status": "open", "limit": 200}
+            if cursor:
+                params["cursor"] = cursor
+            response = self.session.get(f"{BASE_URL}/events", params=params, timeout=self.timeout)
+            response.raise_for_status()
+            payload = response.json()
+            for event in payload.get("events", []):
+                ticker = str(event.get("event_ticker", ""))
+                if ticker:
+                    events[ticker] = event
+            cursor = payload.get("cursor", "")
+            if not cursor:
+                break
+        return events
+
     def fetch_contracts(self, sports: Iterable[str]) -> list[KalshiContract]:
         contracts: list[KalshiContract] = []
         for sport in sports:
             for market_type, series_ticker in SERIES[sport].items():
+                events = self.fetch_open_events(series_ticker)
                 for market in self.fetch_open_markets(series_ticker):
+                    market = dict(market)
+                    parent = events.get(str(market.get("event_ticker", "")), {})
+                    market["_event_title"] = str(parent.get("title", ""))
+                    market["_event_sub_title"] = str(parent.get("sub_title", ""))
                     contract = parse_contract(market, sport, market_type, series_ticker)
                     if contract:
                         contracts.append(contract)
@@ -86,7 +110,8 @@ def parse_contract(market: dict[str, Any], sport: str, market_type: str, series_
     title = str(market.get("title", "")).strip()
     if not ticker:
         return None
-    first_team, second_team = _matchup(title)
+    event_title = str(market.get("_event_title", "")).strip()
+    first_team, second_team = _matchup(event_title or title)
     if market_type == "spread":
         target_team, line = _spread_details(market)
     else:
