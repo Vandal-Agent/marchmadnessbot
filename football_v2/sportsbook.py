@@ -5,7 +5,7 @@ from typing import Any, Iterable
 import requests
 
 from football_v2.config import settings
-from football_v2.models import SportsbookGame, SportsbookMarket, SportsbookOutcome
+from football_v2.models import FootballResult, SportsbookGame, SportsbookMarket, SportsbookOutcome
 
 BASE_URL = "https://api.the-odds-api.com/v4/sports"
 SPORT_KEYS = {"nfl": "americanfootball_nfl", "ncaaf": "americanfootball_ncaaf"}
@@ -30,6 +30,23 @@ class SportsbookClient:
             games.extend(parse_game(row, sport) for row in response.json())
         return games
 
+    def fetch_scores(self, sports: Iterable[str], days_from: int = 3) -> list[FootballResult]:
+        if not self.api_key:
+            raise ValueError("Missing ODDS_API_KEY in /home/vandal/.env")
+        results: list[FootballResult] = []
+        for sport in sports:
+            response = self.session.get(
+                f"{BASE_URL}/{SPORT_KEYS[sport]}/scores",
+                params={"apiKey": self.api_key, "daysFrom": days_from, "dateFormat": "iso"},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            results.extend(
+                result for row in response.json()
+                if (result := parse_result(row, sport)) is not None
+            )
+        return results
+
 
 def parse_game(row: dict[str, Any], sport: str) -> SportsbookGame:
     markets: list[SportsbookMarket] = []
@@ -47,3 +64,26 @@ def parse_game(row: dict[str, Any], sport: str) -> SportsbookGame:
                     str(bookmaker.get("title", "")), "moneyline" if market.get("key") == "h2h" else "spread", outcomes))
     return SportsbookGame(str(row.get("id", "")), sport, str(row.get("commence_time", "")),
                           str(row.get("home_team", "")), str(row.get("away_team", "")), tuple(markets), row)
+
+
+def parse_result(row: dict[str, Any], sport: str) -> FootballResult | None:
+    if not row.get("completed"):
+        return None
+    scores = {
+        str(score.get("name", "")): score.get("score")
+        for score in row.get("scores") or []
+        if score.get("name") and score.get("score") is not None
+    }
+    home_team = str(row.get("home_team", ""))
+    away_team = str(row.get("away_team", ""))
+    if home_team not in scores or away_team not in scores:
+        return None
+    try:
+        home_score = int(scores[home_team])
+        away_score = int(scores[away_team])
+    except (TypeError, ValueError):
+        return None
+    return FootballResult(
+        str(row.get("id", "")), sport, str(row.get("commence_time", "")),
+        home_team, away_team, home_score, away_score, True, row,
+    )
