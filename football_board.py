@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from football_v2.config import settings
 from football_v2.kalshi import KalshiClient
 from football_v2.matching import match_game
+from football_v2.notifications import format_new_recommendations, send_telegram_message
 from football_v2.sportsbook import SportsbookClient
 from football_v2.storage import connect, save_run
 from football_v2.value import compare_contract
@@ -17,6 +18,7 @@ def main() -> None:
     parser.add_argument("--minimum-edge", type=float, default=settings.minimum_net_edge)
     parser.add_argument("--cost-buffer", type=float, default=settings.cost_buffer)
     parser.add_argument("--minimum-lead-minutes", type=int, default=settings.minimum_lead_minutes)
+    parser.add_argument("--notify", action="store_true")
     parser.add_argument("--no-save", action="store_true")
     args = parser.parse_args(); sports = ("nfl","ncaaf") if args.sport == "all" else (args.sport,)
     observed = datetime.now(timezone.utc).isoformat()
@@ -30,7 +32,11 @@ def main() -> None:
         )
         if value is None: unusable += 1; continue
         values.append(value)
-    if not args.no_save: save_run(connect(settings.database_path),observed,contracts,games,values)
+    new_recommendations = []
+    if not args.no_save:
+        new_recommendations = save_run(connect(settings.database_path),observed,contracts,games,values)
+    if args.notify and new_recommendations:
+        send_telegram_message(format_new_recommendations(new_recommendations))
     qualifying=sorted((v for v in values if v.qualifies),key=lambda v:v.net_edge,reverse=True)
     print("FOOTBALL V2 PAPER SCAN")
     print(f"Sports: {', '.join(sports)}\nKalshi contracts: {len(contracts)}\nSportsbook games: {len(games)}")
