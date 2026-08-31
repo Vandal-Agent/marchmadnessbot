@@ -40,8 +40,8 @@ class StorageTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT COUNT(*) FROM sportsbook_snapshots").fetchone()[0], 0)
             db.close()
 
-    def test_old_databases_migrate_to_version_three(self):
-        for old_version in (1, 2):
+    def test_old_databases_migrate_to_version_four(self):
+        for old_version in (1, 2, 3):
             with self.subTest(old_version=old_version), tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "football.sqlite"
                 old = sqlite3.connect(path)
@@ -51,9 +51,11 @@ class StorageTests(unittest.TestCase):
                 old.close()
 
                 db = connect(path)
-                self.assertEqual(db.execute("SELECT version FROM schema_meta").fetchone()[0], 3)
+                self.assertEqual(db.execute("SELECT version FROM schema_meta").fetchone()[0], 4)
                 columns = {row[1] for row in db.execute("PRAGMA table_info(paper_recommendations)")}
                 self.assertIn("commence_time", columns)
+                self.assertIn("home_score", columns)
+                self.assertIn("away_score", columns)
                 db.close()
 
 
