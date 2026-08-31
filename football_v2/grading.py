@@ -15,6 +15,18 @@ class GradeSummary:
     graded: int
 
 
+def count_due_recommendations(
+    db: sqlite3.Connection,
+    now: datetime | None = None,
+) -> int:
+    observed = (now or datetime.now(timezone.utc)).isoformat()
+    return db.execute("""
+      SELECT COUNT(*) FROM paper_recommendations
+      WHERE status='pending'
+        AND datetime(commence_time) <= datetime(?, '-4 hours')
+      """, (observed,)).fetchone()[0]
+
+
 def grade_pending_recommendations(
     db: sqlite3.Connection,
     results: list[FootballResult],
