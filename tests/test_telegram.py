@@ -21,23 +21,10 @@ def insert_comparison(
     db.execute(
         """
         INSERT INTO value_comparisons(
-            observed_at,
-            sport,
-            market_type,
-            kalshi_ticker,
-            game_id,
-            commence_time,
-            matchup,
-            selection,
-            line,
-            kalshi_yes_ask,
-            fair_probability,
-            sportsbook_samples,
-            edge_before_costs,
-            cost_buffer,
-            net_edge,
-            qualifies,
-            match_score
+            observed_at,sport,market_type,kalshi_ticker,game_id,
+            commence_time,matchup,selection,line,kalshi_yes_ask,
+            fair_probability,sportsbook_samples,edge_before_costs,
+            cost_buffer,net_edge,qualifies,match_score
         ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,
         (
@@ -77,7 +64,7 @@ class TelegramSupportTests(unittest.TestCase):
             is_authorized_chat(None, "12345")
         )
 
-    def test_status_reports_paper_record(self):
+    def test_status_reports_separate_paper_records(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "football.sqlite"
             db = connect(path)
@@ -101,11 +88,15 @@ class TelegramSupportTests(unittest.TestCase):
                 status,
             )
             self.assertIn(
-                "Official recommendations: 0",
+                "OFFICIAL RECOMMENDATIONS",
                 status,
             )
             self.assertIn(
-                "Gross ROI before fees: +0.0%",
+                "TRACKED TOP-TEN PAPER CANDIDATES",
+                status,
+            )
+            self.assertIn(
+                "Observational only. Not recommendations.",
                 status,
             )
 
@@ -176,7 +167,10 @@ class TelegramSupportTests(unittest.TestCase):
             ):
                 self.assertIn(matchup, status)
 
-            self.assertEqual(status.count("NCAAF | Game A"), 1)
+            self.assertEqual(
+                status.count("NCAAF | Game A"),
+                1,
+            )
             self.assertNotIn("NCAAF | Game F", status)
             self.assertNotIn("One-book Game", status)
 

@@ -143,6 +143,7 @@ def main() -> None:
 
         values.append(value)
 
+    tracked_watchlist = rank_value_board(values, limit=10)
     new_recommendations = []
 
     if not args.no_save:
@@ -152,6 +153,7 @@ def main() -> None:
             contracts,
             games,
             values,
+            tracked_watchlist=tracked_watchlist,
         )
 
     if args.notify and new_recommendations:
@@ -172,6 +174,7 @@ def main() -> None:
     print(f"Rejected unmatched/ambiguous: {unmatched}")
     print(f"Rejected without comparable prices: {unusable}")
     print(f"Official paper opportunities: {len(qualifying)}")
+    print(f"Top-ten paper candidates tracked: {len(tracked_watchlist)}")
 
     print_value_board(values)
 

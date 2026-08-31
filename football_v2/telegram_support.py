@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from football_v2.storage import connect
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -128,6 +130,34 @@ def format_value_board(rows: list[tuple]) -> list[str]:
     return lines
 
 
+def _paper_record(
+    db: sqlite3.Connection,
+    table: str,
+) -> tuple[int, int, int, int, float, float]:
+    total = db.execute(
+        f"SELECT COUNT(*) FROM {table}"
+    ).fetchone()[0]
+    pending = db.execute(
+        f"SELECT COUNT(*) FROM {table} WHERE status='pending'"
+    ).fetchone()[0]
+    wins = db.execute(
+        f"SELECT COUNT(*) FROM {table} WHERE result='win'"
+    ).fetchone()[0]
+    losses = db.execute(
+        f"SELECT COUNT(*) FROM {table} WHERE result='loss'"
+    ).fetchone()[0]
+    profit_loss, cost = db.execute(
+        f"""
+        SELECT
+            COALESCE(SUM(profit_loss), 0),
+            COALESCE(SUM(entry_price), 0)
+        FROM {table}
+        WHERE status='graded'
+        """
+    ).fetchone()
+    return total, pending, wins, losses, profit_loss, cost
+
+
 def build_status(database_path: Path) -> str:
     if not database_path.exists():
         return (
@@ -135,62 +165,82 @@ def build_status(database_path: Path) -> str:
             "No paper database exists yet."
         )
 
-    db = sqlite3.connect(database_path)
+    db = connect(database_path)
 
     try:
         last_scan = db.execute(
             "SELECT MAX(observed_at) FROM scan_runs"
         ).fetchone()[0]
-        total = db.execute(
-            "SELECT COUNT(*) FROM paper_recommendations"
-        ).fetchone()[0]
-        pending = db.execute(
-            """
-            SELECT COUNT(*)
-            FROM paper_recommendations
-            WHERE status='pending'
-            """
-        ).fetchone()[0]
-        wins = db.execute(
-            """
-            SELECT COUNT(*)
-            FROM paper_recommendations
-            WHERE result='win'
-            """
-        ).fetchone()[0]
-        losses = db.execute(
-            """
-            SELECT COUNT(*)
-            FROM paper_recommendations
-            WHERE result='loss'
-            """
-        ).fetchone()[0]
-        profit_loss, cost = db.execute(
-            """
-            SELECT
-                COALESCE(SUM(profit_loss), 0),
-                COALESCE(SUM(entry_price), 0)
-            FROM paper_recommendations
-            WHERE status='graded'
-            """
-        ).fetchone()
+        official = _paper_record(
+            db,
+            "paper_recommendations",
+        )
+        watchlist = _paper_record(
+            db,
+            "paper_watchlist",
+        )
         value_board = latest_value_board(db, last_scan)
     finally:
         db.close()
 
-    roi = profit_loss / cost if cost else 0.0
+    (
+        official_total,
+        official_pending,
+        official_wins,
+        official_losses,
+        official_profit_loss,
+        official_cost,
+    ) = official
+    (
+        watchlist_total,
+        watchlist_pending,
+        watchlist_wins,
+        watchlist_losses,
+        watchlist_profit_loss,
+        watchlist_cost,
+    ) = watchlist
+
+    official_roi = (
+        official_profit_loss / official_cost
+        if official_cost
+        else 0.0
+    )
+    watchlist_roi = (
+        watchlist_profit_loss / watchlist_cost
+        if watchlist_cost
+        else 0.0
+    )
 
     lines = [
         "FOOTBALL V2 PAPER STATUS",
         f"Last scan: {last_scan or 'none'}",
-        f"Official recommendations: {total}",
-        f"Pending: {pending}",
-        f"Graded: {wins + losses} ({wins} W, {losses} L)",
+        "",
+        "OFFICIAL RECOMMENDATIONS",
+        f"Entries: {official_total}",
+        f"Pending: {official_pending}",
+        (
+            f"Graded: {official_wins + official_losses} "
+            f"({official_wins} W, {official_losses} L)"
+        ),
         (
             "Gross P/L before fees: "
-            f"{profit_loss:+.2f} per-contract dollars"
+            f"{official_profit_loss:+.2f} per-contract dollars"
         ),
-        f"Gross ROI before fees: {roi:+.1%}",
+        f"Gross ROI before fees: {official_roi:+.1%}",
+        "",
+        "TRACKED TOP-TEN PAPER CANDIDATES",
+        "Observational only. Not recommendations.",
+        f"Entries: {watchlist_total}",
+        f"Pending: {watchlist_pending}",
+        (
+            f"Graded: {watchlist_wins + watchlist_losses} "
+            f"({watchlist_wins} W, {watchlist_losses} L)"
+        ),
+        (
+            "Gross P/L before fees: "
+            f"{watchlist_profit_loss:+.2f} per-contract dollars"
+        ),
+        f"Gross ROI before fees: {watchlist_roi:+.1%}",
     ]
     lines.extend(format_value_board(value_board))
 
