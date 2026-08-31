@@ -56,8 +56,9 @@ def connect(path: Path) -> sqlite3.Connection:
 
 
 def save_run(db: sqlite3.Connection, observed_at: str, contracts: list[KalshiContract],
-             games: list[SportsbookGame], values: list[ValueComparison]) -> None:
+             games: list[SportsbookGame], values: list[ValueComparison]) -> list[ValueComparison]:
     qualifying = [value for value in values if value.qualifies]
+    new_recommendations: list[ValueComparison] = []
     with db:
         db.execute(
             "INSERT OR IGNORE INTO scan_runs VALUES(?,?,?,?,?)",
@@ -73,12 +74,18 @@ def save_run(db: sqlite3.Connection, observed_at: str, contracts: list[KalshiCon
           [(v.observed_at,v.sport,v.market_type,v.kalshi_ticker,v.game_id,v.commence_time,v.matchup,v.selection,v.line,
             v.kalshi_yes_ask,v.fair_probability,v.sportsbook_samples,v.edge_before_costs,v.cost_buffer,
             v.net_edge,int(v.qualifies),v.match_score) for v in values])
-        db.executemany("""
-          INSERT OR IGNORE INTO paper_recommendations(
-            first_seen_at,sport,market_type,kalshi_ticker,game_id,commence_time,matchup,selection,line,entry_price,
-            fair_probability,sportsbook_samples,edge_before_costs,cost_buffer,net_edge,match_score
-          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-          """,
-          [(v.observed_at,v.sport,v.market_type,v.kalshi_ticker,v.game_id,v.commence_time,v.matchup,v.selection,v.line,
-            v.kalshi_yes_ask,v.fair_probability,v.sportsbook_samples,v.edge_before_costs,v.cost_buffer,
-            v.net_edge,v.match_score) for v in qualifying])
+        for value in qualifying:
+            cursor = db.execute("""
+              INSERT OR IGNORE INTO paper_recommendations(
+                first_seen_at,sport,market_type,kalshi_ticker,game_id,commence_time,matchup,selection,line,entry_price,
+                fair_probability,sportsbook_samples,edge_before_costs,cost_buffer,net_edge,match_score
+              ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              """, (
+                value.observed_at,value.sport,value.market_type,value.kalshi_ticker,value.game_id,
+                value.commence_time,value.matchup,value.selection,value.line,value.kalshi_yes_ask,
+                value.fair_probability,value.sportsbook_samples,value.edge_before_costs,value.cost_buffer,
+                value.net_edge,value.match_score,
+              ))
+            if cursor.rowcount == 1:
+                new_recommendations.append(value)
+    return new_recommendations
