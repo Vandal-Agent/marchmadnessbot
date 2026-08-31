@@ -5,7 +5,7 @@ from pathlib import Path
 
 from football_v2.models import KalshiContract, SportsbookGame, ValueComparison
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 def connect(path: Path) -> sqlite3.Connection:
@@ -40,10 +40,14 @@ def connect(path: Path) -> sqlite3.Connection:
         columns = {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
         if "commence_time" not in columns:
             db.execute(f"ALTER TABLE {table} ADD COLUMN commence_time TEXT NOT NULL DEFAULT ''")
+    recommendation_columns = {row[1] for row in db.execute("PRAGMA table_info(paper_recommendations)")}
+    for column in ("home_score", "away_score"):
+        if column not in recommendation_columns:
+            db.execute(f"ALTER TABLE paper_recommendations ADD COLUMN {column} INTEGER")
     row = db.execute("SELECT version FROM schema_meta LIMIT 1").fetchone()
     if row is None:
         db.execute("INSERT INTO schema_meta VALUES (?)", (SCHEMA_VERSION,))
-    elif row[0] in (1, 2):
+    elif row[0] in (1, 2, 3):
         db.execute("UPDATE schema_meta SET version = ?", (SCHEMA_VERSION,))
     elif row[0] != SCHEMA_VERSION:
         raise RuntimeError(f"Unsupported schema {row[0]}")
