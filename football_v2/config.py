@@ -12,6 +12,8 @@ load_dotenv("/home/vandal/.env")
 
 @dataclass(frozen=True)
 class FootballSettings:
+    telegram_bot_token: str = os.getenv("MARCHMADNESS_TELEGRAM_BOT_TOKEN", "").strip()
+    telegram_chat_id: str = os.getenv("MARCHMADNESS_TELEGRAM_CHAT_ID", "").strip()
     odds_api_key: str = os.getenv("ODDS_API_KEY", "").strip()
     odds_region: str = os.getenv("ODDS_REGION", "us").strip()
     database_path: Path = BASE_DIR / "data" / "football_v2.sqlite"
