@@ -25,17 +25,19 @@ class StorageTests(unittest.TestCase):
                 "Opponent", None, 0.60, 0.55, 5, -0.05, 0.02, -0.07, False, 0.95,
             )
 
-            save_run(db, "2026-08-30T16:00:00Z", [contract], [game], [qualifying, rejected])
+            first_new = save_run(db, "2026-08-30T16:00:00Z", [contract], [game], [qualifying, rejected])
             later_signal = ValueComparison(
                 "2026-08-30T17:00:01Z", "ncaaf", "moneyline", "T", "G", "2026-09-01T16:00:00Z", "Opponent at Team",
                 "Team", None, 0.44, 0.51, 6, 0.07, 0.02, 0.05, True, 0.96,
             )
-            save_run(db, "2026-08-30T17:00:00Z", [contract], [game], [later_signal])
+            second_new = save_run(db, "2026-08-30T17:00:00Z", [contract], [game], [later_signal])
 
             self.assertEqual(db.execute("SELECT COUNT(*) FROM scan_runs").fetchone()[0], 2)
             self.assertEqual(db.execute("SELECT COUNT(*) FROM value_comparisons").fetchone()[0], 3)
             self.assertEqual(db.execute("SELECT COUNT(*) FROM paper_recommendations").fetchone()[0], 1)
             self.assertEqual(db.execute("SELECT entry_price FROM paper_recommendations").fetchone()[0], 0.40)
+            self.assertEqual([value.kalshi_ticker for value in first_new], ["T"])
+            self.assertEqual(second_new, [])
             self.assertEqual(db.execute("SELECT COUNT(*) FROM kalshi_snapshots").fetchone()[0], 0)
             self.assertEqual(db.execute("SELECT COUNT(*) FROM sportsbook_snapshots").fetchone()[0], 0)
             db.close()
