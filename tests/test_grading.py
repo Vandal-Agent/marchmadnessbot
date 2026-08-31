@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 from types import ModuleType
@@ -13,7 +14,7 @@ if "dotenv" not in sys.modules:
     dotenv_stub.load_dotenv = lambda *_args, **_kwargs: None
     sys.modules["dotenv"] = dotenv_stub
 
-from football_v2.grading import grade_pending_recommendations
+from football_v2.grading import count_due_recommendations, grade_pending_recommendations
 from football_v2.models import FootballResult, KalshiContract, SportsbookGame, ValueComparison
 from football_v2.sportsbook import parse_result
 from football_v2.storage import connect, save_run
@@ -67,6 +68,26 @@ class GradingTests(unittest.TestCase):
                 ("ML", "win", 0.75, 28, 31),
                 ("SP", "loss", -0.40, 28, 31),
             ])
+            db.close()
+
+    def test_future_recommendation_does_not_trigger_score_request(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = connect(Path(directory) / "football.sqlite")
+            contract = KalshiContract(
+                "T", "E", "S", "nfl", "moneyline", "", "", "", "",
+                None, None, None, None, None, 0, 0, "", {},
+            )
+            game = SportsbookGame("G", "nfl", "2026-09-10T00:00:00Z", "Home", "Away", (), {})
+            value = ValueComparison(
+                "2026-08-31T00:00:00Z", "nfl", "moneyline", "T", "G",
+                "2026-09-10T00:00:00Z", "Away at Home", "Home", None,
+                0.40, 0.50, 5, 0.10, 0.02, 0.08, True, 0.95,
+            )
+            save_run(db, "2026-08-31T00:00:00Z", [contract], [game], [value])
+            now = datetime(2026, 9, 1, tzinfo=timezone.utc)
+            self.assertEqual(count_due_recommendations(db, now), 0)
+            later = datetime(2026, 9, 11, tzinfo=timezone.utc)
+            self.assertEqual(count_due_recommendations(db, later), 1)
             db.close()
 
 
