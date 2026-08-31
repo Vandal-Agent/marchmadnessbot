@@ -53,6 +53,19 @@ class SportsbookGame:
 
 
 @dataclass(frozen=True)
+class FootballResult:
+    game_id: str
+    sport: str
+    commence_time: str
+    home_team: str
+    away_team: str
+    home_score: int
+    away_score: int
+    completed: bool
+    raw: dict[str, Any] = field(repr=False)
+
+
+@dataclass(frozen=True)
 class ValueComparison:
     observed_at: str
     sport: str
