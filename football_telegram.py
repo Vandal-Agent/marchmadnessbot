@@ -6,7 +6,12 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from football_v2.config import settings
-from football_v2.telegram_support import build_status, is_authorized_chat, run_manual_scan
+from football_v2.telegram_support import (
+    build_status,
+    build_top_ten,
+    is_authorized_chat,
+    run_manual_scan,
+)
 
 scan_lock = asyncio.Lock()
 
@@ -21,7 +26,8 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     await update.message.reply_text(
         "Football V2 paper bot\n\n"
-        "/footballstatus - paper record and last scan\n"
+        "/footballstatus - paper record and top five\n"
+        "/footballtop10 - latest saved top ten\n"
         "/footballscan - run one extra saved scan\n\n"
         "Paper tracking only. No trades are placed."
     )
@@ -31,6 +37,19 @@ async def footballstatus_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not authorized(update) or update.message is None:
         return
     report = await asyncio.to_thread(build_status, settings.database_path)
+    await update.message.reply_text(report)
+
+
+async def footballtop10_cmd(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    if not authorized(update) or update.message is None:
+        return
+    report = await asyncio.to_thread(
+        build_top_ten,
+        settings.database_path,
+    )
     await update.message.reply_text(report)
 
 
@@ -57,6 +76,7 @@ def main() -> None:
     app = Application.builder().token(settings.telegram_bot_token).build()
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("footballstatus", footballstatus_cmd))
+    app.add_handler(CommandHandler("footballtop10", footballtop10_cmd))
     app.add_handler(CommandHandler("footballscan", footballscan_cmd))
     app.run_polling()
 

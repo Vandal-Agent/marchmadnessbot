@@ -5,6 +5,7 @@ from pathlib import Path
 from football_v2.storage import connect
 from football_v2.telegram_support import (
     build_status,
+    build_top_ten,
     is_authorized_chat,
 )
 
@@ -173,6 +174,59 @@ class TelegramSupportTests(unittest.TestCase):
             )
             self.assertNotIn("NCAAF | Game F", status)
             self.assertNotIn("One-book Game", status)
+
+    def test_top_ten_command_uses_latest_saved_distinct_games(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "football.sqlite"
+            db = connect(path)
+            db.execute(
+                "INSERT INTO scan_runs VALUES(?,?,?,?,?)",
+                ("2026-08-31T12:00:00Z", 100, 20, 12, 0),
+            )
+
+            for index in range(1, 13):
+                insert_comparison(
+                    db,
+                    observed_at=(
+                        "2026-08-31T12:00:"
+                        f"{index:02d}Z"
+                    ),
+                    ticker=f"T{index}",
+                    matchup=f"Game {index:02d}",
+                    net_edge=(13 - index) / 100,
+                )
+
+            insert_comparison(
+                db,
+                observed_at="2026-08-31T12:00:20Z",
+                ticker="DUPLICATE",
+                matchup="Game 01",
+                net_edge=0.50,
+            )
+            db.commit()
+            db.close()
+
+            report = build_top_ten(path)
+
+            self.assertIn(
+                "TOP 10 CURRENT FOOTBALL VALUE BOARD",
+                report,
+            )
+            self.assertIn(
+                "No extra API request used.",
+                report,
+            )
+            self.assertEqual(
+                report.count("NCAAF | Game 01"),
+                1,
+            )
+            for index in range(1, 11):
+                self.assertIn(
+                    f"NCAAF | Game {index:02d}",
+                    report,
+                )
+            self.assertNotIn("NCAAF | Game 11", report)
+            self.assertNotIn("NCAAF | Game 12", report)
 
 
 if __name__ == "__main__":

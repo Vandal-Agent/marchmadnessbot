@@ -71,10 +71,13 @@ def latest_value_board(
     return board
 
 
-def format_value_board(rows: list[tuple]) -> list[str]:
+def format_value_board(
+    rows: list[tuple],
+    title: str = "TOP 5 CURRENT FOOTBALL VALUE BOARD",
+) -> list[str]:
     lines = [
         "",
-        "TOP 5 CURRENT FOOTBALL VALUE BOARD",
+        title,
         "From the latest saved scan. No extra API request used.",
         "Ranked by estimated net value, not simply chance of winning.",
     ]
@@ -245,6 +248,36 @@ def build_status(database_path: Path) -> str:
     lines.extend(format_value_board(value_board))
 
     return "\n".join(lines)[:3900]
+
+
+def build_top_ten(database_path: Path) -> str:
+    if not database_path.exists():
+        return (
+            "TOP 10 CURRENT FOOTBALL VALUE BOARD\n"
+            "No paper database exists yet."
+        )
+
+    db = connect(database_path)
+
+    try:
+        last_scan = db.execute(
+            "SELECT MAX(observed_at) FROM scan_runs"
+        ).fetchone()[0]
+        rows = latest_value_board(
+            db,
+            last_scan,
+            limit=10,
+        )
+    finally:
+        db.close()
+
+    lines = format_value_board(
+        rows,
+        title="TOP 10 CURRENT FOOTBALL VALUE BOARD",
+    )
+    lines.insert(1, f"Last scan: {last_scan or 'none'}")
+
+    return "\n".join(lines[1:])[:3900]
 
 
 def run_manual_scan(timeout: int = 240) -> str:
