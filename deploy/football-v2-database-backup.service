@@ -1,0 +1,12 @@
+[Unit]
+Description=Football V2 verified SQLite database backup
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=vandal
+WorkingDirectory=/home/vandal/bots/marchmadnessbot-football-v2
+ExecStart=/home/vandal/bots/marchmadnessbot/.venv/bin/python /home/vandal/bots/marchmadnessbot-football-v2/football_backup.py
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Football V2 database backup daily
+
+[Timer]
+OnCalendar=*-*-* 04:45:00 America/Los_Angeles
+Persistent=true
+RandomizedDelaySec=5m
+Unit=football-v2-database-backup.service
+
+[Install]
+WantedBy=timers.target
