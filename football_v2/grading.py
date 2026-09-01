@@ -69,7 +69,7 @@ def _grade_pending(
     }
     rows = db.execute(
         f"""
-        SELECT id,game_id,market_type,selection,line,entry_price
+        SELECT id,game_id,market_type,selection,line,entry_price,contract_side
         FROM {table} WHERE status='pending'
         """
     ).fetchall()
@@ -85,6 +85,7 @@ def _grade_pending(
             selection,
             line,
             entry_price,
+            contract_side,
         ) in rows:
             result = by_game_id.get(game_id)
             if result is None:
@@ -113,6 +114,11 @@ def _grade_pending(
                     > float(line)
                 )
             else:
+                continue
+
+            if contract_side == "no":
+                won = not won
+            elif contract_side != "yes":
                 continue
 
             outcome = "win" if won else "loss"

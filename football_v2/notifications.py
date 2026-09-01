@@ -11,12 +11,20 @@ from football_v2.models import ValueComparison
 def format_new_recommendations(values: list[ValueComparison]) -> str:
     lines = [f"NEW FOOTBALL V2 PAPER RECOMMENDATION{'S' if len(values) != 1 else ''}"]
     for value in values:
-        line = "Moneyline" if value.line is None else f"Wins by over {value.line:g}"
+        proposition = (
+            f"{value.selection} wins"
+            if value.line is None
+            else f"{value.selection} wins by over {value.line:g}"
+        )
         lines.extend([
             "",
             f"{value.sport.upper()} | {value.matchup}",
-            f"Selection: {value.selection} | {line}",
-            f"Kalshi YES ask: {value.kalshi_yes_ask:.1%}",
+            f"Contract: BUY {value.contract_side.upper()}",
+            f"Proposition: {proposition}",
+            (
+                f"Kalshi {value.contract_side.upper()} ask: "
+                f"{value.kalshi_yes_ask:.1%}"
+            ),
             f"Sportsbook consensus: {value.fair_probability:.1%}",
             f"Estimated net edge: {value.net_edge:.1%}",
             f"Sportsbooks: {value.sportsbook_samples}",

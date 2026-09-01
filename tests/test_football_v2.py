@@ -101,6 +101,42 @@ class FootballV2Tests(unittest.TestCase):
         ),{})
         self.assertIsNone(compare_contract(c,g,1.0,0.05,0.02,30))
 
+    def test_compare_contract_selects_better_no_side(self):
+        c = KalshiContract(
+            "T", "E", "KXNFLGAME", "nfl", "moneyline",
+            "SEA vs NE", "SEA", "NE", "",
+            .59, .60, .38, .40, None, 100, 100, "", {},
+        )
+        g = SportsbookGame(
+            "G", "nfl", "2099-09-01T00:00:00Z",
+            "New England Patriots", "Seattle Seahawks",
+            (
+                SportsbookMarket(
+                    "b1", "Book 1", "moneyline",
+                    (
+                        SportsbookOutcome("Seattle Seahawks", -110),
+                        SportsbookOutcome("New England Patriots", -110),
+                    ),
+                ),
+                SportsbookMarket(
+                    "b2", "Book 2", "moneyline",
+                    (
+                        SportsbookOutcome("Seattle Seahawks", -110),
+                        SportsbookOutcome("New England Patriots", -110),
+                    ),
+                ),
+            ),
+            {},
+        )
+
+        value = compare_contract(c, g, 1.0, 0.05, 0.02, 30)
+
+        self.assertIsNotNone(value)
+        self.assertEqual(value.contract_side, "no")
+        self.assertEqual(value.kalshi_ticker, "T::NO")
+        self.assertAlmostEqual(value.fair_probability, 0.50)
+        self.assertAlmostEqual(value.kalshi_yes_ask, 0.40)
+
 
 if __name__ == "__main__":
     unittest.main()

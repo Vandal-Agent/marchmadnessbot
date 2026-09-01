@@ -26,7 +26,19 @@ class NotificationTests(unittest.TestCase):
         self.assertIn("Kalshi YES ask: 40.0%", message)
         self.assertIn("Sportsbook consensus: 48.0%", message)
         self.assertIn("Estimated net edge: 6.0%", message)
+        self.assertIn("Contract: BUY YES", message)
         self.assertIn("No trade was placed", message)
+
+    def test_no_recommendation_is_labeled_clearly(self):
+        value = ValueComparison(
+            "2026-08-31T12:00:00Z", "ncaaf", "moneyline", "T::NO", "G",
+            "2026-09-01T00:00:00Z", "Away at Home", "Home", None,
+            0.40, 0.52, 5, 0.12, 0.02, 0.10, True, 0.95,
+            contract_side="no",
+        )
+        message = format_new_recommendations([value])
+        self.assertIn("Contract: BUY NO", message)
+        self.assertIn("Kalshi NO ask: 40.0%", message)
 
 
 if __name__ == "__main__":

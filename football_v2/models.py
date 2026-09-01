@@ -84,3 +84,4 @@ class ValueComparison:
     net_edge: float
     qualifies: bool
     match_score: float
+    contract_side: str = "yes"

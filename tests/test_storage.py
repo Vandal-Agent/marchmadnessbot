@@ -93,8 +93,8 @@ class StorageTests(unittest.TestCase):
             )
             db.close()
 
-    def test_old_databases_migrate_to_version_five(self):
-        for old_version in (1, 2, 3, 4):
+    def test_old_databases_migrate_to_version_six(self):
+        for old_version in (1, 2, 3, 4, 5):
             with self.subTest(old_version=old_version), tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "football.sqlite"
                 old = sqlite3.connect(path)
@@ -109,7 +109,7 @@ class StorageTests(unittest.TestCase):
                 db = connect(path)
                 self.assertEqual(
                     db.execute("SELECT version FROM schema_meta").fetchone()[0],
-                    5,
+                    6,
                 )
                 recommendation_columns = {
                     row[1]
@@ -127,6 +127,7 @@ class StorageTests(unittest.TestCase):
                     "commence_time",
                     "home_score",
                     "away_score",
+                    "contract_side",
                 ):
                     self.assertIn(column, recommendation_columns)
                 for column in (
@@ -134,6 +135,7 @@ class StorageTests(unittest.TestCase):
                     "qualifies_at_entry",
                     "home_score",
                     "away_score",
+                    "contract_side",
                 ):
                     self.assertIn(column, watchlist_columns)
                 db.close()

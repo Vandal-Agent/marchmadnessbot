@@ -33,6 +33,7 @@ def latest_value_board(
         SELECT
             sport,
             market_type,
+            contract_side,
             matchup,
             selection,
             line,
@@ -56,7 +57,7 @@ def latest_value_board(
     seen_games = set()
 
     for row in rows:
-        sport, _, matchup = row[:3]
+        sport, _, _, matchup = row[:4]
         game_key = (sport, matchup)
 
         if game_key in seen_games:
@@ -92,6 +93,7 @@ def format_value_board(
         (
             sport,
             market_type,
+            contract_side,
             matchup,
             selection,
             line,
@@ -107,10 +109,10 @@ def format_value_board(
             if qualifies
             else "WATCHLIST ONLY - NOT RECOMMENDED"
         )
-        market = (
-            "Moneyline"
+        proposition = (
+            f"{selection} wins"
             if market_type == "moneyline" or line is None
-            else f"Wins by over {line:g}"
+            else f"{selection} wins by over {line:g}"
         )
 
         lines.extend(
@@ -118,9 +120,11 @@ def format_value_board(
                 "",
                 f"{rank}. {verdict}",
                 f"{sport.upper()} | {matchup}",
-                f"Selection: {selection} | {market}",
+                f"Contract: BUY {contract_side.upper()}",
+                f"Proposition: {proposition}",
                 (
-                    f"Kalshi YES ask: {kalshi_yes_ask:.1%} | "
+                    f"Kalshi {contract_side.upper()} ask: "
+                    f"{kalshi_yes_ask:.1%} | "
                     f"Sportsbook consensus: {fair_probability:.1%}"
                 ),
                 (

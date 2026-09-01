@@ -5,7 +5,7 @@ from pathlib import Path
 
 from football_v2.models import KalshiContract, SportsbookGame, ValueComparison
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def connect(path: Path) -> sqlite3.Connection:
@@ -65,6 +65,20 @@ def connect(path: Path) -> sqlite3.Connection:
                 db.execute(
                     f"ALTER TABLE {table} ADD COLUMN {column} INTEGER"
                 )
+    for table in (
+        "value_comparisons",
+        "paper_recommendations",
+        "paper_watchlist",
+    ):
+        columns = {
+            row[1]
+            for row in db.execute(f"PRAGMA table_info({table})")
+        }
+        if "contract_side" not in columns:
+            db.execute(
+                f"ALTER TABLE {table} ADD COLUMN "
+                "contract_side TEXT NOT NULL DEFAULT 'yes'"
+            )
     row = db.execute(
         "SELECT version FROM schema_meta LIMIT 1"
     ).fetchone()
@@ -73,7 +87,7 @@ def connect(path: Path) -> sqlite3.Connection:
             "INSERT INTO schema_meta VALUES (?)",
             (SCHEMA_VERSION,),
         )
-    elif row[0] in (1, 2, 3, 4):
+    elif row[0] in (1, 2, 3, 4, 5):
         db.execute(
             "UPDATE schema_meta SET version = ?",
             (SCHEMA_VERSION,),
@@ -112,8 +126,8 @@ def save_run(
             INSERT OR IGNORE INTO value_comparisons(
               observed_at,sport,market_type,kalshi_ticker,game_id,commence_time,matchup,selection,line,
               kalshi_yes_ask,fair_probability,sportsbook_samples,edge_before_costs,cost_buffer,net_edge,
-              qualifies,match_score
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              qualifies,match_score,contract_side
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             [
                 (
@@ -134,6 +148,7 @@ def save_run(
                     value.net_edge,
                     int(value.qualifies),
                     value.match_score,
+                    value.contract_side,
                 )
                 for value in values
             ],
@@ -144,8 +159,8 @@ def save_run(
                 INSERT OR IGNORE INTO paper_watchlist(
                   first_seen_at,first_seen_rank,sport,market_type,kalshi_ticker,game_id,commence_time,
                   matchup,selection,line,entry_price,fair_probability,sportsbook_samples,
-                  edge_before_costs,cost_buffer,net_edge,qualifies_at_entry,match_score
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                  edge_before_costs,cost_buffer,net_edge,qualifies_at_entry,match_score,contract_side
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     value.observed_at,
@@ -166,6 +181,7 @@ def save_run(
                     value.net_edge,
                     int(value.qualifies),
                     value.match_score,
+                    value.contract_side,
                 ),
             )
         for value in qualifying:
@@ -173,8 +189,9 @@ def save_run(
                 """
                 INSERT OR IGNORE INTO paper_recommendations(
                   first_seen_at,sport,market_type,kalshi_ticker,game_id,commence_time,matchup,selection,line,
-                  entry_price,fair_probability,sportsbook_samples,edge_before_costs,cost_buffer,net_edge,match_score
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                  entry_price,fair_probability,sportsbook_samples,edge_before_costs,cost_buffer,net_edge,match_score,
+                  contract_side
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     value.observed_at,
@@ -193,6 +210,7 @@ def save_run(
                     value.cost_buffer,
                     value.net_edge,
                     value.match_score,
+                    value.contract_side,
                 ),
             )
             if cursor.rowcount == 1:

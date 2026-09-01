@@ -73,7 +73,7 @@ class GradingTests(unittest.TestCase):
                 "2026-08-31T00:00:01Z", "ncaaf", "spread", "SP", "G",
                 "2026-09-01T00:00:00Z", "Washington State at Washington",
                 "Washington St.", 6.5, 0.40, 0.50, 5, 0.10, 0.02,
-                0.08, False, 0.95,
+                0.08, False, 0.95, contract_side="no",
             )
             save_run(
                 db,
@@ -117,7 +117,7 @@ class GradingTests(unittest.TestCase):
                 watchlist_rows,
                 [
                     ("ML", "win", 0.75, 1),
-                    ("SP", "loss", -0.40, 0),
+                    ("SP", "win", 0.60, 0),
                 ],
             )
             db.close()

@@ -63,17 +63,21 @@ def print_value_board(values: list) -> None:
             if value.qualifies
             else "WATCHLIST ONLY - NOT RECOMMENDED"
         )
-        market = (
-            "Moneyline"
+        proposition = (
+            f"{value.selection} wins"
             if value.line is None
-            else f"Wins by over {value.line:g}"
+            else f"{value.selection} wins by over {value.line:g}"
         )
 
         print()
         print(f"{rank}. {verdict}")
         print(f"{value.sport.upper()} | {value.matchup}")
-        print(f"Selection: {value.selection} | {market}")
-        print(f"Kalshi YES ask: {value.kalshi_yes_ask:.1%}")
+        print(f"Contract: BUY {value.contract_side.upper()}")
+        print(f"Proposition: {proposition}")
+        print(
+            f"Kalshi {value.contract_side.upper()} ask: "
+            f"{value.kalshi_yes_ask:.1%}"
+        )
         print(f"Sportsbook consensus: {value.fair_probability:.1%}")
         print(f"Estimated net edge: {value.net_edge:+.1%}")
         print(f"Sportsbooks used: {value.sportsbook_samples}")
