@@ -1,12 +1,13 @@
 import sys
+import importlib.util
 import unittest
 from types import ModuleType
 
-if "telegram" not in sys.modules:
+if "telegram" not in sys.modules and importlib.util.find_spec("telegram") is None:
     telegram_stub = ModuleType("telegram")
     telegram_stub.Bot = object
     sys.modules["telegram"] = telegram_stub
-if "dotenv" not in sys.modules:
+if "dotenv" not in sys.modules and importlib.util.find_spec("dotenv") is None:
     dotenv_stub = ModuleType("dotenv")
     dotenv_stub.load_dotenv = lambda *_args, **_kwargs: None
     sys.modules["dotenv"] = dotenv_stub

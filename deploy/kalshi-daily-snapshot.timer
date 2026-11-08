@@ -1,0 +1,12 @@
+[Unit]
+Description=Observe Kalshi daily balance at midnight Pacific
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 America/Los_Angeles
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=false
+Unit=kalshi-daily-snapshot.service
+
+[Install]
+WantedBy=timers.target

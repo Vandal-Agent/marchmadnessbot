@@ -26,3 +26,5 @@ Thumbs.db
 # Local databases
 *.sqlite
 *.db
+.test-tmp/
+.test-deps/

@@ -1,0 +1,17 @@
+[Unit]
+Description=Kalshi read-only Pacific daily balance observation
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=@BOT_USER@
+WorkingDirectory=@BOT_DIR@
+ExecStart=@BOT_PYTHON@ @BOT_DIR@/kalshi_snapshot.py
+UMask=0077
+TimeoutStartSec=90
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=@BOT_DIR@/data

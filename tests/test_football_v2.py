@@ -1,13 +1,14 @@
 import unittest
 import sys
+import importlib.util
 from types import ModuleType
 
 # Keep pure parser/math tests independent of optional runtime packages.
-if "requests" not in sys.modules:
+if "requests" not in sys.modules and importlib.util.find_spec("requests") is None:
     requests_stub = ModuleType("requests")
     requests_stub.Session = object
     sys.modules["requests"] = requests_stub
-if "dotenv" not in sys.modules:
+if "dotenv" not in sys.modules and importlib.util.find_spec("dotenv") is None:
     dotenv_stub = ModuleType("dotenv")
     dotenv_stub.load_dotenv = lambda *_args, **_kwargs: None
     sys.modules["dotenv"] = dotenv_stub
